@@ -56,4 +56,32 @@ public static class SampleEndpoint1
             .Apply(static (someId, someOtherId) => (someId, someOtherId))
             .ToEither()
             .MapLeft(errors => new ValidationError(errors));
+    
+    // full-on language-ext, though it can probably be simplified
+    private static IResult Handle2(  
+        Request request,  
+        SomeThingRepository someThingRepository,  
+        SomeOtherThingRepository someOtherThingRepository)  
+        => Parse(request)  
+            .MapLeft(Results.BadRequest)  
+            .Bind(input => someThingRepository  
+                .Load(input.someId)  
+                .ToEither(() => Results.NotFound())  
+                .Map(someThing => (input.someOtherId, someThing)))  
+            .Bind(input => someOtherThingRepository  
+                .Load(input.someOtherId)  
+                .ToEither(() => Results.NotFound())  
+                .Map(someOtherThing => (input.someThing, someOtherThing)))  
+            .Bind(input => input.someThing  
+                .DoSomethingRequiringOtherThing(input.someOtherThing)  
+                .BiMap(  
+                    Right: _ => input.someThing,  
+                    Left: Results.Conflict))  
+            .Match(  
+                Right: someThing =>  
+                {  
+                    someThingRepository.Save(someThing);  
+                    return Results.NoContent();  
+                },            
+                Left: errorResult => errorResult);
 }
