@@ -7,9 +7,9 @@ public static class FunctionalImperativeBridgeExtensions
 {
     public static bool TryGetValue<T>(this Option<T> option, [MaybeNullWhen(false)] out T value)
     {
-        value = option.Match(
+        value = option.MatchUnsafe(
             Some: static some => some,
-            None: static () => default(T));
+            None: static () => default);
         
         return option.IsSome;
     }
